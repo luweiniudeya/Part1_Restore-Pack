@@ -1,0 +1,111 @@
+5
+张琛峰 19 50 Student1_chen
+芦苇 31 99.9999 Student2_luwei
+叼德一 29 -99.999 Student3_diao
+niudeya 20 16.2525 Student4_牛
+hihihi 22 88 Student5_嗨
+
+1
+张琛峰 19 50 Student1_chen
+
+2
+张琛峰 19 50 Student1_chen
+芦苇 31 99.9999 Student2_luwei
+
+int restore_student(char* buf, int len, Student* s)
+{
+    /*buf 为压缩区域存储区的首地址；len为buf中存放数据的长度；s为存放解压数据的结构数组的起始地址； 
+        返回解压的人数。解压时不允许使用函数接口之外的信息（即不允许定义其他全局变量）*/
+    int ans = 0;
+    char* p = buf;
+    while (p < buf + len)//仅在len合法时无bug
+    {
+        strcpy(s[ans].name, p);
+        p += (strlen(p)+1);
+        s[ans].age = *((short*)p);
+        p += 2;//此处其实没必要sizeof 直接 2  4即可
+        s[ans].score = *((float*)p);
+        p += 4;
+        strcpy(s[ans].remark, p);
+        p = p + (strlen(p)+1);
+        ans++;
+    }
+    return ans;
+}
+
+
+int  pack_student_whole(Student* s, int sno, char* buf)
+{
+    char* origin = (char*)s;
+    char* begin = (char*)s;
+    char* des = buf;
+    while (origin < begin + sizeof(Student) * sno)
+    {
+        strcpy(des, origin);
+        origin += sizeof(Student::name);
+        des += (strlen(des) + 1);
+
+        *((short*)des) = *((short*)origin);
+        des += sizeof(Student::age);
+        origin += sizeof(Student::age);
+        *((float*)des) = *((float*)origin);
+        des += sizeof(Student::score);
+        origin += sizeof(Student::score);
+
+        strcpy(des, origin);
+        origin += sizeof(Student::remark);
+        des += (strlen(des) + 1);
+    }
+    return des - buf;
+}
+
+int  pack_student_bytebybyte(Student* s, int sno, char* buf)
+{
+    /*s为待压缩数组的起始地址； sno 为压缩人数； buf 为压缩存储区的首地址；
+    两个函数的返回均是调用函数压缩后的字节数。pack_student_bytebybyte要
+    求一个字节一个字节的向buf中写数据；pack_student_whole要求对short、float字段
+    都只能用一条语句整体写入，用strcpy实现串的写入。*/
+    memset(buf, 0, sizeof(buf));
+    char* origin = (char*)s;//强制转换
+    char* begin = (char*)s;
+    char* des = buf;
+    int namehelp = 0;
+    int remarkhelp = 0;
+    while (origin < begin + sizeof(Student) * sno)
+    {
+        //写入name 可压缩
+        namehelp = 0;
+        remarkhelp = 0;
+        for (int i = 0; i < sizeof(Student::name); i++)//byte by byte地将串写入buf  且保证紧凑
+        {
+            des[i] = origin[i];
+            namehelp++;
+            if (origin[i] == '\0')
+                break;
+        }
+        origin += sizeof(Student::name);
+        des += namehelp;
+
+        //写入age 与 float  不可压缩
+        for (int i = 0; i < 2; i++)
+        {
+            *des = *origin;
+            des++; origin++;
+        }
+        *((unsigned int*)des) = *((unsigned int*)origin);
+        des += 4;
+        origin += 4;
+        
+        //写入remark 可压缩
+        for (int i = 0; i < sizeof(Student::remark); i++)//byte by byte地将串写入buf  且保证紧凑
+        {
+            des[i] = origin[i];
+            remarkhelp++;
+            if (origin[i] == '\0')
+                break;
+        }
+        origin += sizeof(Student::remark);
+        des += remarkhelp;
+    }
+    return des - buf;
+}
